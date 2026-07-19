@@ -1,0 +1,66 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b1f28"/>
+      <stop offset="1" stop-color="#0d0f14"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.44" r="0.55">
+      <stop offset="0" stop-color="#f5b942" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#f5b942" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="node" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd375"/>
+      <stop offset="1" stop-color="#f5b942"/>
+    </linearGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.1"/>
+    </filter>
+  </defs>
+
+  <!-- tile -->
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#tile)"/>
+  <rect x="16.5" y="16.5" width="479" height="479" rx="107.5" fill="none" stroke="#f5b942" stroke-opacity="0.16" stroke-width="1"/>
+  <circle cx="256" cy="238" r="180" fill="url(#glow)"/>
+
+  <!-- knowledge-graph edges (the "second brain" wiring) -->
+  <g stroke="url(#node)" stroke-opacity="0.55" stroke-width="4.5" stroke-linecap="round" fill="none" filter="url(#soft)">
+    <path d="M150 196 L214 150"/>
+    <path d="M214 150 L262 214"/>
+    <path d="M150 196 L196 262"/>
+    <path d="M196 262 L262 214"/>
+    <path d="M262 214 L330 168"/>
+    <path d="M330 168 L372 236"/>
+    <path d="M262 214 L344 262"/>
+    <path d="M344 262 L372 236"/>
+    <path d="M196 262 L166 332"/>
+    <path d="M166 332 L244 314"/>
+    <path d="M244 314 L344 262"/>
+    <path d="M244 314 L288 372"/>
+    <path d="M344 262 L288 372"/>
+  </g>
+
+  <!-- bridge deck: the family motif, a hairline span beneath the brain -->
+  <g stroke="#f5b942" stroke-opacity="0.45" stroke-linecap="round" fill="none">
+    <path d="M132 412 L380 412" stroke-width="6"/>
+    <path d="M156 412 L156 388 M206 412 L206 386 M256 412 L256 384 M306 412 L306 386 M356 412 L356 388" stroke-width="3" stroke-opacity="0.32"/>
+    <path d="M132 388 Q256 356 380 388" stroke-width="4" stroke-opacity="0.5"/>
+  </g>
+
+  <!-- nodes -->
+  <g fill="url(#node)">
+    <circle cx="150" cy="196" r="15"/>
+    <circle cx="214" cy="150" r="11"/>
+    <circle cx="262" cy="214" r="19"/>
+    <circle cx="196" cy="262" r="11"/>
+    <circle cx="330" cy="168" r="12"/>
+    <circle cx="372" cy="236" r="15"/>
+    <circle cx="344" cy="262" r="11"/>
+    <circle cx="166" cy="332" r="13"/>
+    <circle cx="244" cy="314" r="12"/>
+  </g>
+  <!-- the one live/connected node -->
+  <circle cx="288" cy="372" r="13" fill="#4ade80"/>
+  <circle cx="288" cy="372" r="20" fill="none" stroke="#4ade80" stroke-opacity="0.4" stroke-width="3"/>
+  <!-- hub highlight -->
+  <circle cx="262" cy="214" r="7" fill="#fff4dc" fill-opacity="0.85"/>
+</svg>
