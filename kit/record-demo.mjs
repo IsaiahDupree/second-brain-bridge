@@ -90,15 +90,20 @@ async function clearComposer(page) {
   await sleep(250);
 }
 
-// Click ChatGPT's send button (falls back to Enter). Returns true if it fired.
+// Click ChatGPT's send button. Returns the composer state:
+//   'streaming' — a Stop button is showing (the message already sent, model is
+//                 replying). NEVER press again here or we'd click Stop and abort.
+//   'clicked'   — we clicked an enabled send button.
+//   'none'      — no send button (e.g. empty composer); nudge with Enter.
 async function pressSend(page) {
-  const clicked = await page.evaluate(() => {
+  const state = await page.evaluate(() => {
+    if (document.querySelector('button[data-testid="stop-button"], button[aria-label*="Stop streaming"], button[aria-label="Stop"]')) return 'streaming';
     const b = document.querySelector('button[data-testid="send-button"], #composer-submit-button, button[aria-label*="Send"]');
-    if (b && !b.disabled) { b.click(); return true; }
-    return false;
-  }).catch(() => false);
-  if (!clicked) await page.keyboard.press('Enter');
-  return clicked;
+    if (b && !b.disabled) { b.click(); return 'clicked'; }
+    return 'none';
+  }).catch(() => 'none');
+  if (state === 'none') await page.keyboard.press('Enter');
+  return state;
 }
 
 async function sendPrompt(page, text) {
@@ -112,7 +117,8 @@ async function sendPrompt(page, text) {
   // (Enter alone is flaky and causes the next prompt to concatenate into this one).
   let submitted = false;
   for (let i = 0; i < 6 && !submitted; i++) {
-    await pressSend(page);
+    const st = await pressSend(page);
+    if (st === 'streaming') { submitted = true; break; } // already sent + replying; don't press again (would hit Stop)
     await sleep(1300);
     if ((await userCount(page)) > beforeU) submitted = true;
   }
