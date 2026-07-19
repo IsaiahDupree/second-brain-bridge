@@ -19,8 +19,8 @@
     "demoRecordingNote": "REQUIRED by OpenAI. YouTube (Unlisted). Demo arc against the reviewer vault: list_sources → search_knowledge (quarter goals) → get_note (OKRs) → backlinks (Pro) → create_note (Pro).",
     "directoryIcon": "../assets/icon-512.png",
     "composerIcon": "../assets/icon-512.png",
-    "commerceLinksOutForPurchases": true,
-    "commerceNote": "Pro is a $8/mo subscription purchased via a Stripe-hosted checkout that opens from the /upgrade page (a link-out purchase), so this is true. Reviewers never hit the paywall: the demo account below is provisioned as Pro, so every tool — including the Pro-only backlinks and create_note — works without any purchase."
+    "commerceLinksOutForPurchases": false,
+    "commerceNote": "LEFT UNCHECKED on the submission form. At review time billing is disabled (no STRIPE_* env set → billingEnabled=false → every account is Pro), so there is no live purchase link-out and the reviewer never encounters a paywall. The optional Pro subscription is sold on the product's own website (/upgrade → Stripe), not through ChatGPT. If Stripe is wired later and in-directory monetization is desired, revisit this — OpenAI's directory only supports physical-good sales, not digital subscriptions, so keep monetization off-platform."
   },
   "domainVerification": {
     "note": "The MCP section issues a token you must serve at /.well-known/openai-apps-challenge on the MCP hostname. server/api/challenge.js serves it from the OPENAI_APPS_CHALLENGE env var. Set it on Vercel (`vercel env add OPENAI_APPS_CHALLENGE production`), redeploy, then click Verify Domain. The token is a PUBLIC value, not a secret.",
@@ -37,6 +37,11 @@
     "What links to my OKRs note?"
   ],
   "promptsNote": "Up to 3 showcase prompts (Prompts section). They render as @Plugin chat bubbles.",
+  "testPrompts": [
+    { "prompt": "What did I write about deep work?" },
+    { "prompt": "Summarize my Q3 planning notes" },
+    { "prompt": "What links to my OKRs note?" }
+  ],
   "testCases": [
     { "scenario": "See what's in the vault", "prompt": "What's in my knowledge vault?", "tools": "list_sources", "expected": "Returns the demo vault ('Demo Vault', 6 notes) with a per-folder breakdown — Work (3: Q3 Planning, OKRs, Project Atlas), Ideas (1: Deep Work), Recipes (1: Sourdough), and one note at the root (Reading List)." },
     { "scenario": "Search notes by topic", "prompt": "Search my notes for quarter goals", "tools": "search_knowledge", "expected": "Returns the most relevant passages first — the 'Q3 Planning' note ('Goals for the quarter tie back to our [[OKRs]]…') and the 'OKRs' note (Objective + KR1/KR2/KR3), each with its source path. (The 'ask' tool answers the same way for a natural-language question.)" },
