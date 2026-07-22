@@ -6,6 +6,7 @@
 
 import Stripe from 'stripe';
 import { redis } from './redis.js';
+import { hasCommandCenter, emailForUser } from './commandCenter.js';
 
 const KEY = process.env.STRIPE_SECRET_KEY;
 const PRICE_PRO = process.env.STRIPE_PRICE_PRO;
@@ -18,6 +19,9 @@ const byCustKey = (c) => `stripe_user:${c}`;
 
 // When billing is not configured, every account is Pro (self-host / dev).
 export async function getPlan(userId) {
+  // Command Center bundle: one subscription grants Pro across every connector.
+  const ccEmail = await emailForUser(userId);
+  if (ccEmail && (await hasCommandCenter(ccEmail))) return 'pro';
   if (!billingEnabled) return 'pro';
   return (await redis.get(planKey(userId))) === 'pro' ? 'pro' : 'free';
 }
