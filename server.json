@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.isaiahdupree/second-brain-bridge",
+  "name": "io.github.IsaiahDupree/second-brain-bridge",
   "description": "Search and reason over your Obsidian-style Markdown vault, right from ChatGPT.",
   "version": "1.3.0",
   "websiteUrl": "https://secondbrainbridge.vercel.app",
