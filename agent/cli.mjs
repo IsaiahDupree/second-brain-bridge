@@ -10,7 +10,8 @@ import { homedir, hostname } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { runTool } from './knowledge-agent.mjs';
+import { runTool, resolveVault } from './knowledge-agent.mjs';
+import { refreshIndex, indexStatus } from './knowledge-index.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -96,8 +97,8 @@ export function xmlEscape(s) {
 
 // Build the LaunchAgent plist XML. ProgramArguments run `<node> <cli.mjs> run`
 // with absolute paths so launchd can start it with no PATH assumptions.
-export function buildPlist({ label, nodePath, cliPath, workingDir, outLog, errLog }) {
-  const args = [nodePath, cliPath, 'run'];
+export function buildPlist({ label, nodePath, cliPath, workingDir, outLog, errLog, command = 'run', intervalSeconds = null }) {
+  const args = [nodePath, cliPath, command];
   const argXml = args.map((a) => `    <string>${xmlEscape(a)}</string>`).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -111,8 +112,7 @@ ${argXml}
   </array>
   <key>RunAtLoad</key>
   <true/>
-  <key>KeepAlive</key>
-  <true/>
+${intervalSeconds ? `  <key>StartInterval</key>\n  <integer>${intervalSeconds}</integer>` : '  <key>KeepAlive</key>\n  <true/>'}
   <key>WorkingDirectory</key>
   <string>${xmlEscape(workingDir)}</string>
   <key>StandardOutPath</key>
@@ -270,7 +270,7 @@ async function cmdRun(serverFlag) {
         log(`job ${job.jobId}: skipped — stale (queued ${ageS}s ago, caller gave up)`);
         continue;
       }
-      log(`job ${job.jobId}: ${job.tool} ${JSON.stringify(job.args ?? {}).slice(0, 200)}`);
+      log(`job ${job.jobId}: ${job.tool}`);
       let payload;
       try {
         payload = { jobId: job.jobId, ok: true, result: await runTool(job.tool, job.args ?? {}) };
@@ -389,6 +389,11 @@ async function cmdInstall() {
 }
 
 async function cmdUninstall() {
+  const indexLabel = 'com.secondbrainbridge.knowledge-index';
+  const indexPlist = join(homedir(), 'Library', 'LaunchAgents', indexLabel + '.plist');
+  runLaunchctl(['bootout', `gui/${process.getuid()}/${indexLabel}`]);
+  if (existsSync(indexPlist)) rmSync(indexPlist);
+
   if (process.platform !== 'darwin') {
     console.error('`uninstall` is only supported on macOS.');
     process.exit(1);
@@ -437,6 +442,9 @@ Commands:
   install       Install a macOS LaunchAgent so the agent starts on login and restarts on crash.
   uninstall     Stop and remove the LaunchAgent.
   logs          Show the last ~50 lines of the background agent log.
+  index        Build or incrementally refresh the private vault snapshot.
+  index-status Show coverage and freshness without note text.
+  index-install Refresh every 15 minutes through a bounded LaunchAgent.
   status        Check config and server reachability (does not consume jobs).
 
 Options:
@@ -449,11 +457,35 @@ Typical setup:
   npx second-brain-agent install`);
 }
 
+async function cmdInstallIndex() {
+  const vault = resolveVault();
+  if (!vault) throw new Error('Choose a vault before indexing');
+  console.log(JSON.stringify(await refreshIndex(vault)));
+  const label = 'com.secondbrainbridge.knowledge-index';
+  const path = join(homedir(), 'Library', 'LaunchAgents', label + '.plist');
+  const logDir = join(homedir(), 'Library', 'Application Support', 'SecondBrainBridge');
+  const plist = buildPlist({ label, nodePath: process.execPath, cliPath: realpathSync(__filename), workingDir: homedir(),
+    outLog: join(logDir, 'index-refresh.log'), errLog: join(logDir, 'index-refresh-error.log'), command: 'index', intervalSeconds: 900 });
+  runLaunchctl(['bootout', `gui/${process.getuid()}/${label}`]);
+  writeFileSync(path, plist, { mode: 0o600 });
+  const loaded = runLaunchctl(['bootstrap', `gui/${process.getuid()}`, path]);
+  if (!loaded.ok) throw new Error('Index built; automatic refresh installation failed');
+}
+
 async function main() {
   const { _: positional, server } = parseArgs(process.argv.slice(2));
   const [command, ...rest] = positional;
 
   switch (command) {
+    case 'index':
+      console.log(JSON.stringify(await refreshIndex(resolveVault())));
+      break;
+    case 'index-status':
+      console.log(JSON.stringify(await indexStatus(resolveVault())));
+      break;
+    case 'index-install':
+      await cmdInstallIndex();
+      break;
     case 'pair':
       await cmdPair(rest[0], server || DEFAULT_SERVER);
       break;

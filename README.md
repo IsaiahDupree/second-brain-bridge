@@ -9,7 +9,7 @@
 
 </div>
 
-SecondBrainBridge is a [Model Context Protocol](https://modelcontextprotocol.io) (MCP) connector that lets ChatGPT search and reason over your **Obsidian-style Markdown vault** — a folder of notes on your Mac. It never uploads your notes to a third party — every action runs on **your own Mac** through a tiny local agent. The cloud piece is only a stateless relay that shuttles requests between ChatGPT and your Mac.
+SecondBrainBridge is a [Model Context Protocol](https://modelcontextprotocol.io) (MCP) connector that lets ChatGPT search and reason over your **Obsidian-style Markdown vault** — a folder of notes on your Mac. Reads execute locally and requested results pass through the authenticated relay — every action runs on **your own Mac** through a tiny local agent. The cloud piece is only a stateless relay that shuttles requests between ChatGPT and your Mac.
 
 ```
   ChatGPT  ──OAuth──►  SecondBrainBridge relay  ──job queue──►  second-brain-agent  ──►  Obsidian vault
@@ -129,7 +129,7 @@ node --test agent/test-agent-unit.mjs
 
 ## Security & privacy
 
-- Notes are read/written **only on your Mac**. The relay never persists note content — job payloads live in Redis-shaped storage with a short TTL and are deleted on delivery.
+- Notes are read/written **only on your Mac**. The relay temporarily stores requested content in short-lived job/result queues — job payloads live in Redis-shaped storage with a short TTL and are deleted on delivery.
 - The agent token (and your vault path) is stored at `~/.secondbrainbridge-agent.json` (mode `600`); the vault path can also come from `SECONDBRAIN_VAULT`.
 - No secrets are committed; see [`.gitignore`](./.gitignore) and the `.env.example` files.
 - The write tool (`create_note`) is marked destructive so ChatGPT asks before adding a note.
@@ -137,3 +137,15 @@ node --test agent/test-agent-unit.mjs
 ## License
 
 [MIT](./LICENSE) © Isaiah Dupree
+
+## Production storage and owner verification
+
+Relay 1.4 uses isolated service-role-only tables/functions on the configured shared Supabase project. Production refuses missing storage configuration, bounds RPC requests to ten seconds, and returns HTTP 503 when storage or signing configuration is unavailable. Apply the checked-in isolated-storage migration before deploying this version; it does not replace another bridge's account tables or functions.
+
+`node --env-file=.env.local test/live-storage.mjs` verifies the actual persistent store, FIFO, expiry and counters using temporary integration keys. `BRIDGE_SESSION_FILE=/private/owner-session.json BRIDGE_READ_TOOL=READ_TOOL node test/live-relay.mjs` verifies the actual owner session, PKCE OAuth, hosted MCP and paired-Mac read; choose this bridge's inventory tool. No reviewer data counts as a live acceptance. Credentials and sessions belong outside Git.
+
+### Private vault index (source agent 1.1)
+
+Requires Node 22.13+. Set the exact vault in the agent config, then run `node agent/cli.mjs index-install`. This builds a private SQLite snapshot under `~/Library/Application Support/SecondBrainBridge/` and incrementally checks changes every 15 minutes. It indexes Markdown/text files, excludes dot directories and symlinks, and reports the complete count without a silent 5,000-file cap. Search/list responses include the snapshot time and 15-minute freshness boundary. Fetch reads current file text; creating a note refuses overwrites and invalidates the snapshot. No embedding/model service is started.
+
+`node agent/cli.mjs index-status` reports counts and freshness. `node test/live-index.mjs` checks actual ID coverage, private permissions, live text comparisons and read/search results. `uninstall` removes the refresh job while retaining the private index. No npm publication is claimed for this source upgrade.

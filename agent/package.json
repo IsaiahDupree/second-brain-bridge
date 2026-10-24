@@ -1,7 +1,7 @@
 {
   "name": "second-brain-agent",
-  "version": "1.0.0",
-  "description": "Local agent for the SecondBrain Bridge MCP connector — lets ChatGPT search and reason over your Obsidian/Markdown knowledge vault, on your own Mac.",
+  "version": "1.1.0",
+  "description": "Local agent for the SecondBrain Bridge MCP connector \u2014 lets ChatGPT search and reason over your Obsidian/Markdown knowledge vault, on your own Mac.",
   "type": "module",
   "bin": {
     "second-brain-agent": "./cli.mjs"
@@ -10,7 +10,8 @@
     "cli.mjs",
     "knowledge-agent.mjs",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "knowledge-index.mjs"
   ],
   "keywords": [
     "obsidian",
@@ -33,7 +34,7 @@
     "directory": "agent"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.13"
   },
   "scripts": {
     "test": "node --test test-agent-unit.mjs"

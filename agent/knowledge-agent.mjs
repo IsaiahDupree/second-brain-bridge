@@ -13,10 +13,11 @@
 import { readFile, writeFile, readdir, stat } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, basename, relative, extname } from 'node:path';
+import { join, basename } from 'node:path';
+import { indexedNotes, indexStatus, invalidateIndex, readNote } from './knowledge-index.mjs';
 
 const CONFIG_PATH = join(homedir(), '.secondbrainbridge-agent.json');
-const MAX_FILES = 5000;
+
 
 export function buildJxaArgs(tool, args = {}) {
   return args;
@@ -41,25 +42,6 @@ export function resolveVault() {
   return guesses.find((g) => existsSync(g)) || null;
 }
 
-// Walk the vault for markdown/text notes (bounded).
-async function walk(dir, out = []) {
-  let entries;
-  try { entries = await readdir(dir, { withFileTypes: true }); } catch { return out; }
-  for (const e of entries) {
-    if (out.length >= MAX_FILES) break;
-    if (e.name.startsWith('.')) continue; // skip .obsidian, .git, dotfiles
-    const p = join(dir, e.name);
-    if (e.isDirectory()) await walk(p, out);
-    else if (/\.(md|markdown|txt)$/i.test(e.name)) out.push(p);
-  }
-  return out;
-}
-
-const titleOf = (path, text) => {
-  const h = (text.match(/^#\s+(.+)$/m) || [])[1];
-  return (h || basename(path).replace(/\.(md|markdown|txt)$/i, '')).trim();
-};
-
 // Split note text into paragraph-ish passages.
 const passages = (text) => text.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
 
@@ -74,18 +56,7 @@ function scorePassage(p, terms, title) {
   return s;
 }
 
-async function loadNotes(vault) {
-  const files = await walk(vault);
-  const notes = [];
-  for (const f of files) {
-    try {
-      const text = await readFile(f, 'utf8');
-      const st = await stat(f);
-      notes.push({ path: f, rel: relative(vault, f), title: titleOf(f, text), text, mtime: st.mtimeMs });
-    } catch {}
-  }
-  return notes;
-}
+const loadNotes = indexedNotes;
 
 async function retrieve(vault, query, limit) {
   const terms = String(query || '').toLowerCase().split(/\s+/).filter((t) => t.length > 1);
@@ -102,6 +73,7 @@ async function retrieve(vault, query, limit) {
 }
 
 function findByRef(notes, ref) {
+  if (!String(ref || '').trim()) return null;
   const r = String(ref || '').toLowerCase().replace(/\.(md|markdown|txt)$/i, '');
   return (
     notes.find((n) => n.rel.toLowerCase() === String(ref).toLowerCase()) ||
@@ -122,13 +94,14 @@ export async function runTool(tool, args = {}) {
     case 'ask': {
       const limit = Math.min(args.limit || (tool === 'ask' ? 8 : 12), 40);
       const results = await retrieve(vault, args.query || args.question || '', limit);
-      return { results };
+      return { results, index: await indexStatus(vault) };
     }
     case 'get_note': {
       const notes = await loadNotes(vault);
       const n = findByRef(notes, args.id || args.path || args.title);
       if (!n) throw new Error(`Note not found: ${args.id || args.path || args.title || ''}`);
-      return { note: { source: n.rel, title: n.title, body: n.text.slice(0, 20000) } };
+      const text = await readNote(vault, n.rel);
+      return { note: { source: n.rel, title: n.title, body: text.slice(0, 20000), truncated: text.length > 20000 } };
     }
     case 'list_sources': {
       const notes = await loadNotes(vault);
@@ -137,7 +110,7 @@ export async function runTool(tool, args = {}) {
         const dir = n.rel.includes('/') ? n.rel.split('/')[0] : '(root)';
         folders[dir] = (folders[dir] || 0) + 1;
       }
-      return { vault: basename(vault), total_notes: notes.length, folders: Object.entries(folders).map(([name, count]) => ({ name, count })) };
+      return { vault: basename(vault), total_notes: notes.length, index: await indexStatus(vault), folders: Object.entries(folders).map(([name, count]) => ({ name, count })) };
     }
     case 'backlinks': {
       const notes = await loadNotes(vault);
@@ -152,7 +125,8 @@ export async function runTool(tool, args = {}) {
       const body = String(args.body || '');
       const path = join(vault, `${title}.md`);
       const content = /^#\s/.test(body) ? body : `# ${title}\n\n${body}\n`;
-      await writeFile(path, content, 'utf8');
+      await writeFile(path, content, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+      await invalidateIndex(vault);
       return { note: { source: `${title}.md`, title, body: content } };
     }
     default:
